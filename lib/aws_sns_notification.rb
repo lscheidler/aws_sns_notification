@@ -38,8 +38,7 @@ module AwsSnsNotification
       @required_arguments = []
       @config = OverlayConfig::Config.new config_scope: 'aws_sns_notification', defaults: {
         region:   'eu-central-1',
-        template: 'default',
-        template_directories: ['templates/']
+        template_directories: [File.realpath(File.dirname(__FILE__)+'/..')+ '/templates']
       }
     end
 
@@ -62,12 +61,12 @@ module AwsSnsNotification
           @type = :service
         end
 
-        opt.on('--template STRING', 'use specified template for notification', 'default: ' + @config.template) do |template|
+        opt.on('--template STRING', 'use specified template for notification') do |template|
           @config.template = template
         end
 
         opt.on('--template-directory STRING', 'add specified template directory to search path', 'default: ' + @config.template_directories.inspect) do |template_directory|
-          @config.template_directories.unshift template_directory
+          @config.template_directories.unshift File.realpath(template_directory)
         end
       end
 
@@ -117,23 +116,45 @@ module AwsSnsNotification
 
     def load_template
       # set default values
-      data = YAML::load_file('templates/default.yml')
+      data = YAML::load_file(@config.template_directories.last + '/default.yml')
       data.each do |key, value|
         instance_variable_set '@'+key, value
       end
 
       # find template
+      if @config.template
+        template_file = @config.template_directories.map do |dir|
+          [dir + '/' + @config.template + '.yml', dir + '/' + @config.template + '.yaml'].find{|x| File.exist? x}
+        end.find{|x| not x.nil?}
+
+        data = YAML::load_file(template_file)
+        data.each do |key, value|
+          instance_variable_set '@'+key, value
+        end
+      end
     end
 
     def initialize_data
+      parse_output if @parse_output
       @subject = if @type == :host
                    ERB.new(@host_subject).result(binding)
                  else
                    ERB.new(@service_subject).result(binding)
                  end
-      @message = {
-        default:  ERB.new(@template).result(binding)
-      }
+      @message = ERB.new(@template).result(binding)
+      puts @message
+      exit
+    end
+
+    def parse_output
+      case @parse_output
+      when :json
+        begin
+          @output = JSON::parse(@output)
+        rescue JSON::ParserError
+          @json_parse_error = true
+        end
+      end
     end
 
     def send_data

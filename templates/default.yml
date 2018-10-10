@@ -1,0 +1,18 @@
+host_subject:    "<%= @notification_type %> - <%= @host_display_name %> is <%= @state %>"
+service_subject: "<%= @notification_type %> - <%= @host_display_name %> - <%= @service_display_name %> is <%= @state %>"
+
+template: |
+  ***** Icinga  *****
+  
+  Notification Type: <%= @notification_type %>
+  
+  <% if @type == :service %>Service: <%= @service_description %>
+  <% end %>Host: <%= @host_alias %>
+  Address: <%= @host_address %>
+  State: <%= @state %>
+  
+  Date/Time: <%= @date_time %>
+  
+  Additional Info: <%= @output %>
+  
+  Comment: [<%= @notification_author %>] <%= @notification_comment %>

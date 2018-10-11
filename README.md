@@ -1,34 +1,133 @@
 # AwsSnsNotification
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/aws_sns_notification`. To experiment with that code, run `bin/console` for an interactive prompt.
-
-TODO: Delete this and the text above, and describe your gem
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'aws_sns_notification'
+gem 'overlay_config', '~> 0.1.2', git: 'https://github.com/lscheidler/ruby-overlay_config', branch: 'master'
+gem 'aws_sns_notification', '~> 0.1.0', git: 'https://github.com/lscheidler/aws_sns_notification', branch: 'master'
 ```
 
 And then execute:
 
-    $ bundle
-
-Or install it yourself as:
-
-    $ gem install aws_sns_notification
+    $ bundle install --binstubs=bin
 
 ## Usage
 
-TODO: Write usage instructions here
+```
+bin/aws_sns_notification -h
+```
 
-## Development
+### icinga2 configuration
 
-After checking out the repo, run `bin/setup` to install dependencies. Then, run `rake spec` to run the tests. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
+```
+template NotificationCommand "sns-notification-command" {
+  vars.sns_topic = "arn:aws:sns:<region>:<account>:<topic>"
+}
 
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and tags, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+object NotificationCommand "sns-host-notification" {
+  import "plugin-notification-command"
+  import "sns-notification-command"
+
+  command = [ CustomPluginDir + "/aws-sns-notification" ]
+
+  arguments = {
+    "--host"                  = ""
+    "--notification-type"     = "$notification.type$"
+    "--host-alias"            = "$host.display_name$"
+    "--host-address"          = "$address$"
+    "--state"                 = "$host.state$"
+    "--date-time"             = "$icinga.long_date_time$"
+    "--output"                = "$host.output$"
+    "--notification-author"   = "$notification.author$"
+    "--notification-comment"  = "$notification.comment$"
+    "--host-display-name"     = "$host.display_name$"
+    "--sns-topic"             = "$sns_topic$"
+  }
+
+  env = {
+    "BUNDLE_GEMFILE" = CustomPluginDir + "/../Gemfile"
+  }
+}
+```
+
+```
+object NotificationCommand "sns-service-notification" {
+  import "plugin-notification-command"
+  import "sns-notification-command"
+
+  command = [ CustomPluginDir + "/aws-sns-notification" ]
+
+  arguments = {
+    "--service"               = ""
+    "--notification-type"     = "$notification.type$"
+    "--service-description"   = "$service.name$"
+    "--host-alias"            = "$host.display_name$"
+    "--host-address"          = "$address$"
+    "--state"                 = "$service.state$"
+    "--date-time"             = "$icinga.long_date_time$"
+    "--output"                = "$service.output$"
+    "--notification-author"   = "$notification.author$"
+    "--notification-comment"  = "$notification.comment$"
+    "--host-display-name"     = "$host.display_name$"
+    "--service-display-name"  = "$service.display_name$"
+    "--sns-topic"             = "$sns_topic$"
+    "--icingaweb2"            = {
+      set_if = Icingaweb2Url.len()
+      value = Icingaweb2Url
+    }
+    "--graph"                 = {
+      set_if = "$service.action_url$".len()
+      value = "$service.action_url$"
+    }
+  }
+
+  env = {
+    "BUNDLE_GEMFILE" = CustomPluginDir + "/../Gemfile"
+  }
+}
+```
+
+```
+object NotificationCommand "sns-service-template-notification" {
+  import "plugin-notification-command"
+  import "sns-notification-command"
+
+  command = [ CustomPluginDir + "/aws-sns-notification" ]
+
+  arguments = {
+    "--service"               = ""
+    "--notification-type"     = "$notification.type$"
+    "--service-description"   = "$service.name$"
+    "--host-alias"            = "$host.display_name$"
+    "--host-address"          = "$address$"
+    "--state"                 = "$service.state$"
+    "--date-time"             = "$icinga.long_date_time$"
+    "--output"                = "$service.output$"
+    "--notification-author"   = "$notification.author$"
+    "--notification-comment"  = "$notification.comment$"
+    "--host-display-name"     = "$host.display_name$"
+    "--service-display-name"  = "$service.display_name$"
+    "--sns-topic"             = "$sns_topic$"
+    "--template"              = "$template"
+    "--template-directory"    = "$template_directory"
+    "--icingaweb2"            = {
+      set_if = Icingaweb2Url.len()
+      value = Icingaweb2Url
+    }
+    "--graph"                 = {
+      set_if = "$service.action_url$".len()
+      value = "$service.action_url$"
+    }
+  }
+
+  env = {
+    "BUNDLE_GEMFILE" = CustomPluginDir + "/../Gemfile"
+  }
+}
+```
 
 ## Contributing
 

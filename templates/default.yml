@@ -10,6 +10,9 @@ template: |
   <% end %>Host: <%= @host_alias %>
   Address: <%= @host_address %>
   State: <%= @state %>
+  <% if @type == :host %>Url: <%= @icingaweb2 %>/monitoring/service/show?host=<%= @host_alias %>
+  <% elsif @url %>Url: <%= @icingaweb2 %>/monitoring/service/show?host=<%= @host_alias %>&service=<%= @service_display_name %><% end %>
+  <% if @graphurl %>Graph: <%= @graphurl %><% end %>
   
   Date/Time: <%= @date_time %>
   

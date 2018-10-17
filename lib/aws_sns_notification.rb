@@ -68,6 +68,14 @@ module AwsSnsNotification
         opt.on('--template-directory STRING', 'add specified template directory to search path', 'default: ' + @config.template_directories.inspect) do |template_directory|
           @config.template_directories.unshift File.realpath(template_directory)
         end
+
+        opt.on('--icingaweb2 URL', 'set icingaweb2 url') do |url|
+          @icingaweb2 = url
+        end
+
+        opt.on('--graph URL', 'set graph url') do |url|
+          @graphurl = url
+        end
       end
 
       add_argument :date_time,            'set date time'
@@ -142,8 +150,6 @@ module AwsSnsNotification
                    ERB.new(@service_subject).result(binding)
                  end
       @message = ERB.new(@template).result(binding)
-      puts @message
-      exit
     end
 
     def parse_output

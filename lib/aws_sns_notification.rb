@@ -1,4 +1,4 @@
-# Copyright 2018 Lars Eric Scheidler
+# Copyright 2019 Lars Eric Scheidler
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,126 +30,134 @@ module AwsSnsNotification
       parse_arguments
 
       load_template
+      check_arguments
+
+      help if @show_help
+
       initialize_data
       send_data
     end
 
     def set_defaults
-      @required_arguments = []
       @config = OverlayConfig::Config.new config_scope: 'aws_sns_notification', defaults: {
+        aws_notification_role: 'notification',
+        hashicorp_secret_engine_path: 'aws',
+        aws_sts_ttl: '60m',
         region:   'eu-central-1',
-        template_directories: [File.realpath(File.dirname(__FILE__)+'/..')+ '/templates']
+        template_directories: [File.realpath(File.dirname(__FILE__)+'/..')+ '/templates'],
+        template: 'default',
       }
     end
 
     def parse_arguments
-      @options = OptionParser.new do |opt|
-        opt.on('-h', '--help', 'show this help') do
-          puts opt
-          exit 0
+      @options = OptionParser.new do |opts|
+        opts.on('-h', '--help', 'show this help') do
+          @show_help = true
         end
 
-        opt.on('--region STRING', 'set sns topic region', 'default: ' + @config.region) do |region|
+        opts.on('--hashicorp-vault-address URL', 'set hashicorp vault address') do |address|
+          @config.hashicorp_vault_address = address
+        end
+
+        opts.on('-n', '--dryrun') do
+          @config.dryrun = true
+        end
+
+        opts.on('--region STRING', 'set sns topic region', 'default: ' + @config.region) do |region|
           @config.region = region
         end
 
-        opt.on('--host', 'host notification') do
-          @type = :host
-        end
-
-        opt.on('--service', 'service notification') do
-          @type = :service
-        end
-
-        opt.on('--template STRING', 'use specified template for notification') do |template|
+        opts.on('--template STRING', 'use specified template for notification') do |template|
           @config.template = template
         end
 
-        opt.on('--template-directory STRING', 'add specified template directory to search path', 'default: ' + @config.template_directories.inspect) do |template_directory|
+        opts.on('--template-directory STRING', 'add specified template directory to search path', 'default: ' + @config.template_directories.inspect) do |template_directory|
           @config.template_directories.unshift File.realpath(template_directory)
         end
 
-        opt.on('--icingaweb2 URL', 'set icingaweb2 url') do |url|
-          @icingaweb2 = url
+        opts.on('--sns-topic TOPIC', 'set sns topic') do |topic|
+          @config.sns_topic = topic
         end
 
-        opt.on('--graph URL', 'set graph url') do |url|
-          @graphurl = url
+        opts.on('-v', '--variable KEY=VALUE', 'set variable KEY to VALUE') do |keyval|
+          key, value = keyval.split("=")
+          #@config[key] = value
+          instance_variable_set "@#{key}", value
+        end
+
+        opts.on('--variant NAME', 'use template variant NAME') do |variant|
+          @config.template_variant = variant
         end
       end
-
-      add_argument :date_time,            'set date time'
-      add_argument :host_address,         'set host address'
-      add_argument :host_alias,           'set host alias'
-      add_argument :host_display_name,    'set host display name'
-      add_argument :notification_author,  'set notification author'
-      add_argument :notification_comment, 'set notification comment'
-      add_argument :notification_type,    'set notification type'
-      add_argument :output,               'set output'
-
-      add_argument :service_description,  'set service description' do
-        ( @type == :service ) ? true : false
-      end
-
-      add_argument :service_display_name,  'set service display name' do
-        ( @type == :service ) ? true : false
-      end
-
-      add_argument :state,                'set state'
-      add_argument :sns_topic,            'set sns topic'
 
       @options.parse!
-
-      @required_arguments.delete_if do |name, block|
-        if block.yield and not instance_variable_get("@#{name}").nil? #and not instance_variable_get("@#{name}").empty?
-          true
-        else
-          not block.yield
-        end
-      end
-      raise ArgumentError.new 'missing arguments: ' + @required_arguments.map{|name,p| '--' + name.to_s.gsub('_', '-')}.join(', ') unless @required_arguments.empty?
     end
 
-    def add_argument name, description, &block
-      @options.on('--' + name.to_s.gsub('_', '-') + ' STRING', description) do |value|
-        instance_variable_set "@#{name}", value
+    def help
+      puts @options
+
+      if not @required_variables.empty?
+        puts "\nRequired Variables:"
+        @required_variables.each do |rarg|
+          printf "    -v %-29s %s\n", "#{rarg['name'].to_s}=<VALUE>", rarg['description']
+        end
       end
 
-      if block.nil?
-        @required_arguments << [name, Proc.new {true}]
-      else
-        @required_arguments << [name, block]
+      if not @optional_variables.empty?
+        puts "\nOptional Variables:"
+        @optional_variables.each do |oarg|
+          printf "    -v %-29s %s\n", "#{oarg['name'].to_s}=<VALUE>", oarg['description']
+        end
       end
+      exit 0
     end
 
     def load_template
-      # set default values
-      data = YAML::load_file(@config.template_directories.last + '/default.yml')
-      data.each do |key, value|
-        instance_variable_set '@'+key, value
-      end
+      ## find template
+      template_file = @config.template_directories.map do |dir|
+        [dir + '/' + @config.template + '.yml', dir + '/' + @config.template + '.yaml'].find{|x| File.exist? x}
+      end.find{|x| not x.nil?}
 
-      # find template
-      if @config.template
-        template_file = @config.template_directories.map do |dir|
-          [dir + '/' + @config.template + '.yml', dir + '/' + @config.template + '.yaml'].find{|x| File.exist? x}
-        end.find{|x| not x.nil?}
+      @template = YAML::load_file(template_file)
 
-        data = YAML::load_file(template_file)
-        data.each do |key, value|
-          instance_variable_set '@'+key, value
+      if @template['variants'] and @template['variants'][@config.template_variant]
+        @template['variants'][@config.template_variant].each do |key, value|
+          if @template[key] and ['required_variables', 'optional_variables'].include? key
+            @template[key] += value
+          else
+            @template[key] = value
+          end
         end
       end
+
+      @required_variables = []
+      if @template['required_variables'] and not @template['required_variables'].empty?
+        @required_variables += @template['required_variables']
+      end
+
+      @optional_variables = []
+      if @template['optional_variables'] and not @template['optional_variables'].empty?
+        @optional_variables += @template['optional_variables']
+      end
+    end
+
+    def check_arguments
+      raise ArgumentError.new 'missing argument: --sns-topic' unless @config.sns_topic
+
+      missing_arguments = []
+      @required_variables.each do |rarg|
+        if not instance_variable_defined? "@#{rarg['name']}"
+          #missing_arguments << '-v ' + rarg['name'].to_s + '=<VALUE>'
+          missing_arguments << rarg['name'].to_s
+        end
+      end
+      raise ArgumentError.new 'missing variables: ' + missing_arguments.join(', ') unless missing_arguments.empty?
     end
 
     def initialize_data
       parse_output if @parse_output
-      @subject = if @type == :host
-                   ERB.new(@host_subject).result(binding)
-                 else
-                   ERB.new(@service_subject).result(binding)
-                 end
-      @message = ERB.new(@template).result(binding)
+      @subject = ERB.new(@template['subject']).result(binding)
+      @message = ERB.new(@template['template']).result(binding)
     end
 
     def parse_output
@@ -163,8 +171,29 @@ module AwsSnsNotification
       end
     end
 
+    def hashicorp_vault_authenticate
+      require 'vault'
+      require 'aws_imds'
+
+      Vault.address = @config.hashicorp_vault_address
+      iam_instance_role = File.basename(AwsImds.meta_data.iam.info["InstanceProfileArn"])
+      Vault.auth.aws_iam(iam_instance_role, Aws::InstanceProfileCredentials.new, @config.hashicorp_vault_id_header)
+
+      session = Vault.logical.write("#{@config.hashicorp_secret_engine_path}/sts/#{@config.aws_notification_role}", {ttl: @config.aws_sts_ttl})
+
+      Aws.config.update(
+         credentials: Aws::Credentials.new(
+           session.data[:access_key],
+           session.data[:secret_key],
+           session.data[:security_token]
+         )
+      )
+    end
+
     def send_data
-      if @config.aws_access_key_id and @config.aws_secret_key
+      if @config.hashicorp_vault_address and @config.aws_notification_role
+        hashicorp_vault_authenticate
+      elsif @config.aws_access_key_id and @config.aws_secret_key
         Aws.config.update(
           credentials: Aws::Credentials.new(@config.aws_access_key_id, @config.aws_secret_key)
         )
@@ -173,8 +202,13 @@ module AwsSnsNotification
       sns = Aws::SNS::Resource.new(
         region: @config.region
       )
-      topic = sns.topic(@sns_topic)
-      topic.publish(message: @message, subject: @subject)
+      if not @config.dryrun
+        topic = sns.topic(@config.sns_topic)
+        topic.publish(message: @message, subject: @subject)
+      else
+        puts @subject
+        puts @message
+      end
     end
   end
 end

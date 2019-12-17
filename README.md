@@ -6,8 +6,7 @@
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'overlay_config', '~> 0.1.2', git: 'https://github.com/lscheidler/ruby-overlay_config', branch: 'master'
-gem 'aws_sns_notification', '~> 0.1.0', git: 'https://github.com/lscheidler/aws_sns_notification', branch: 'master'
+gem 'aws_sns_notification', '~> 0.1.0', git: 'https://github.com/lscheidler/aws_sns_notification'
 ```
 
 And then execute:
@@ -34,17 +33,19 @@ object NotificationCommand "sns-host-notification" {
   command = [ CustomPluginDir + "/aws-sns-notification" ]
 
   arguments = {
-    "--host"                  = ""
-    "--notification-type"     = "$notification.type$"
-    "--host-alias"            = "$host.display_name$"
-    "--host-address"          = "$address$"
-    "--state"                 = "$host.state$"
-    "--date-time"             = "$icinga.long_date_time$"
-    "--output"                = "$host.output$"
-    "--notification-author"   = "$notification.author$"
-    "--notification-comment"  = "$notification.comment$"
-    "--host-display-name"     = "$host.display_name$"
+    "--template"              = "icinga"
+    "--variant"               = "host"
     "--sns-topic"             = "$sns_topic$"
+
+    "-v"                      = "notification_type=$notification.type$"
+    "-v"                      = "host_alias=$host.display_name$"
+    "-v"                      = "host_address=$address$"
+    "-v"                      = "state=$host.state$"
+    "-v"                      = "date_time=$icinga.long_date_time$"
+    "-v"                      = "output=$host.output$"
+    "-v"                      = "notification_author=$notification.author$"
+    "-v"                      = "notification_comment=$notification.comment$"
+    "-v"                      = "host_display_name=$host.display_name$"
   }
 
   env = {
@@ -61,26 +62,28 @@ object NotificationCommand "sns-service-notification" {
   command = [ CustomPluginDir + "/aws-sns-notification" ]
 
   arguments = {
-    "--service"               = ""
-    "--notification-type"     = "$notification.type$"
-    "--service-description"   = "$service.name$"
-    "--host-alias"            = "$host.display_name$"
-    "--host-address"          = "$address$"
-    "--state"                 = "$service.state$"
-    "--date-time"             = "$icinga.long_date_time$"
-    "--output"                = "$service.output$"
-    "--notification-author"   = "$notification.author$"
-    "--notification-comment"  = "$notification.comment$"
-    "--host-display-name"     = "$host.display_name$"
-    "--service-display-name"  = "$service.display_name$"
+    "--template"              = "icinga"
+    "--variant"               = "service"
     "--sns-topic"             = "$sns_topic$"
-    "--icingaweb2"            = {
+
+    "-v"                      = "notification_type=$notification.type$"
+    "-v"                      = "service_description=$service.name$"
+    "-v"                      = "host_alias=$host.display_name$"
+    "-v"                      = "host_address=$address$"
+    "-v"                      = "state=$service.state$"
+    "-v"                      = "date_time=$icinga.long_date_time$"
+    "-v"                      = "output=$service.output$"
+    "-v"                      = "notification_author=$notification.author$"
+    "-v"                      = "notification_comment=$notification.comment$"
+    "-v"                      = "host_display_name=$host.display_name$"
+    "-v"                      = "service_display_name=$service.display_name$"
+    "-v"                      = {
       set_if = Icingaweb2Url.len()
-      value = Icingaweb2Url
+      value = 'icingaweb2=' + Icingaweb2Url
     }
-    "--graph"                 = {
+    "-v"                      = {
       set_if = "$service.action_url$".len()
-      value = "$service.action_url$"
+      value = "graph=$service.action_url$"
     }
   }
 
@@ -98,28 +101,29 @@ object NotificationCommand "sns-service-template-notification" {
   command = [ CustomPluginDir + "/aws-sns-notification" ]
 
   arguments = {
-    "--service"               = ""
-    "--notification-type"     = "$notification.type$"
-    "--service-description"   = "$service.name$"
-    "--host-alias"            = "$host.display_name$"
-    "--host-address"          = "$address$"
-    "--state"                 = "$service.state$"
-    "--date-time"             = "$icinga.long_date_time$"
-    "--output"                = "$service.output$"
-    "--notification-author"   = "$notification.author$"
-    "--notification-comment"  = "$notification.comment$"
-    "--host-display-name"     = "$host.display_name$"
-    "--service-display-name"  = "$service.display_name$"
     "--sns-topic"             = "$sns_topic$"
     "--template"              = "$template"
     "--template-directory"    = "$template_directory"
-    "--icingaweb2"            = {
+    "--variant"               = "service"
+
+    "-v"                      = "notification_type=$notification.type$"
+    "-v"                      = "service_description=$service.name$"
+    "-v"                      = "host_alias=$host.display_name$"
+    "-v"                      = "host_address=$address$"
+    "-v"                      = "state=$service.state$"
+    "-v"                      = "date_time=$icinga.long_date_time$"
+    "-v"                      = "output=$service.output$"
+    "-v"                      = "notification_author=$notification.author$"
+    "-v"                      = "notification_comment=$notification.comment$"
+    "-v"                      = "host_display_name=$host.display_name$"
+    "-v"                      = "service_display_name=$service.display_name$"
+    "-v"                      = {
       set_if = Icingaweb2Url.len()
-      value = Icingaweb2Url
+      value = 'icingaweb2=' + Icingaweb2Url
     }
-    "--graph"                 = {
+    "-v"                      = {
       set_if = "$service.action_url$".len()
-      value = "$service.action_url$"
+      value = "graph=$service.action_url$"
     }
   }
 

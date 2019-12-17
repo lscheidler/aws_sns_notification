@@ -1,0 +1,57 @@
+optional_variables:
+  - name: :icingaweb2
+    description: set icingaweb2 url
+  - name: :graph
+    description: set graph url
+
+required_variables:
+  - name: :date_time
+    description: 'set date time'
+  - name: :host_address
+    description: 'set host address'
+  - name: :host_alias
+    description: 'set host alias'
+  - name: :host_display_name
+    description: 'set host display name'
+  - name: :notification_author
+    description: 'set notification author'
+  - name: :notification_comment
+    description: 'set notification comment'
+  - name: :notification_type
+    description: 'set notification type'
+  - name: :output
+    description: 'set output'
+  - name: :state
+    description: 'set state'
+  - name: :type
+    description: 'set template type (host, service)'
+
+variants:
+  host:
+    subject: "<%= @notification_type %> - <%= @host_display_name %> is <%= @state %>"
+  service:
+    subject: "<%= @notification_type %> - <%= @host_display_name %> - <%= @service_display_name %> is <%= @state %>"
+    required_variables:
+      - name: :service_description
+        description: 'set service description'
+      - name: :service_display_name
+        description: 'set service display name'
+
+template: |
+  ***** Icinga  *****
+  
+  Notification Type: <%= @notification_type %>
+  
+  <% if @type == :service %>Service: <%= @service_description %>
+  <% end %>Host: <%= @host_alias %>
+  Address: <%= @host_address %>
+  State: <%= @state %>
+  <% if @type == :host %>Url: <%= @icingaweb2 %>/monitoring/service/show?host=<%= @host_alias %>
+  <% elsif @url %>Url: <%= @icingaweb2 %>/monitoring/service/show?host=<%= @host_alias %>&service=<%= @service_display_name %><% end %>
+  <% if @graphurl %>Graph: <%= @graphurl %><% end %>
+  
+  Date/Time: <%= @date_time %>
+  
+  Additional Info: <%= @output %>
+  
+  Comment: [<%= @notification_author %>] <%= @notification_comment %>

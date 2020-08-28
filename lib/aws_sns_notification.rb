@@ -1,4 +1,4 @@
-# Copyright 2019 Lars Eric Scheidler
+# Copyright 2020 Lars Eric Scheidler
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,18 +24,14 @@ require 'yaml'
 require 'overlay_config'
 
 module AwsSnsNotification
-  class CLI
+  class Client
+    attr_accessor :config
+
+    attr_accessor :required_variables
+    attr_accessor :optional_variables
+
     def initialize
       set_defaults
-      parse_arguments
-
-      load_template
-      check_arguments
-
-      help if @show_help
-
-      initialize_data
-      send_data
     end
 
     def set_defaults
@@ -47,69 +43,6 @@ module AwsSnsNotification
         template_directories: [File.realpath(File.dirname(__FILE__)+'/..')+ '/templates'],
         template: 'default',
       }
-    end
-
-    def parse_arguments
-      @options = OptionParser.new do |opts|
-        opts.on('-h', '--help', 'show this help') do
-          @show_help = true
-        end
-
-        opts.on('--hashicorp-vault-address URL', 'set hashicorp vault address') do |address|
-          @config.hashicorp_vault_address = address
-        end
-
-        opts.on('-n', '--dryrun') do
-          @config.dryrun = true
-        end
-
-        opts.on('--region STRING', 'set sns topic region', 'default: ' + @config.region) do |region|
-          @config.region = region
-        end
-
-        opts.on('--template STRING', 'use specified template for notification') do |template|
-          @config.template = template
-        end
-
-        opts.on('--template-directory STRING', 'add specified template directory to search path', 'default: ' + @config.template_directories.inspect) do |template_directory|
-          @config.template_directories.unshift File.realpath(template_directory)
-        end
-
-        opts.on('--sns-topic TOPIC', 'set sns topic') do |topic|
-          @config.sns_topic = topic
-        end
-
-        opts.on('-v', '--variable KEY=VALUE', 'set variable KEY to VALUE') do |keyval|
-          key, value = keyval.split("=")
-          #@config[key] = value
-          instance_variable_set "@#{key}", value
-        end
-
-        opts.on('--variant NAME', 'use template variant NAME') do |variant|
-          @config.template_variant = variant
-        end
-      end
-
-      @options.parse!
-    end
-
-    def help
-      puts @options
-
-      if not @required_variables.empty?
-        puts "\nRequired Variables:"
-        @required_variables.each do |rarg|
-          printf "    -v %-29s %s\n", "#{rarg['name'].to_s}=<VALUE>", rarg['description']
-        end
-      end
-
-      if not @optional_variables.empty?
-        puts "\nOptional Variables:"
-        @optional_variables.each do |oarg|
-          printf "    -v %-29s %s\n", "#{oarg['name'].to_s}=<VALUE>", oarg['description']
-        end
-      end
-      exit 0
     end
 
     def load_template
@@ -141,23 +74,25 @@ module AwsSnsNotification
       end
     end
 
-    def check_arguments
-      raise ArgumentError.new 'missing argument: --sns-topic' unless @config.sns_topic
-
-      missing_arguments = []
-      @required_variables.each do |rarg|
-        if not instance_variable_defined? "@#{rarg['name']}"
-          #missing_arguments << '-v ' + rarg['name'].to_s + '=<VALUE>'
-          missing_arguments << rarg['name'].to_s
-        end
-      end
-      raise ArgumentError.new 'missing variables: ' + missing_arguments.join(', ') unless missing_arguments.empty?
-    end
-
     def initialize_data
       parse_output if @parse_output
       @subject = ERB.new(@template['subject']).result(binding)
       @message = ERB.new(@template['template']).result(binding)
+    end
+
+    def set_variable key, value
+      instance_variable_set "@#{key}", value
+    end
+
+    def check_variables
+      missing_variables = []
+      @required_variables.each do |rarg|
+        if not instance_variable_defined? "@#{rarg['name']}"
+          #missing_arguments << '-v ' + rarg['name'].to_s + '=<VALUE>'
+          missing_variables << rarg['name'].to_s
+        end
+      end
+      raise ArgumentError.new 'missing variables: ' + missing_variables.join(', ') unless missing_variables.empty?
     end
 
     def parse_output

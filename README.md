@@ -30,7 +30,7 @@ object NotificationCommand "sns-host-notification" {
   import "plugin-notification-command"
   import "sns-notification-command"
 
-  command = [ CustomPluginDir + "/aws-sns-notification" ]
+  command = [ CustomPluginDir + "/aws_sns_notification" ]
 
   arguments = {
     "--template"              = "icinga"
@@ -59,7 +59,7 @@ object NotificationCommand "sns-service-notification" {
   import "plugin-notification-command"
   import "sns-notification-command"
 
-  command = [ CustomPluginDir + "/aws-sns-notification" ]
+  command = [ CustomPluginDir + "/aws_sns_notification" ]
 
   arguments = {
     "--template"              = "icinga"
@@ -98,7 +98,7 @@ object NotificationCommand "sns-service-template-notification" {
   import "plugin-notification-command"
   import "sns-notification-command"
 
-  command = [ CustomPluginDir + "/aws-sns-notification" ]
+  command = [ CustomPluginDir + "/aws_sns_notification" ]
 
   arguments = {
     "--sns-topic"             = "$sns_topic$"

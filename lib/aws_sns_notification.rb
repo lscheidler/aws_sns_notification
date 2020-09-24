@@ -75,7 +75,7 @@ module AwsSnsNotification
     end
 
     def initialize_data
-      parse_output if @parse_output
+      parse_output if @template['parse_output']
       @subject = ERB.new(@template['subject']).result(binding)
       @message = ERB.new(@template['template']).result(binding)
     end
@@ -96,7 +96,7 @@ module AwsSnsNotification
     end
 
     def parse_output
-      case @parse_output
+      case @template['parse_output']
       when :json
         begin
           @output = JSON::parse(@output)

@@ -50,6 +50,10 @@ module AwsSnsNotification
           @client.config.region = region
         end
 
+        opts.on('--shorten VARNAME', 'shorten varname in subject, if subject is to long', 'example: --shorten host_display_name') do |varname|
+          @client.config.shorten = varname
+        end
+
         opts.on('--template STRING', 'use specified template for notification') do |template|
           @client.config.template = template
         end

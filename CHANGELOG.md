@@ -1,3 +1,9 @@
+0.2.3 (2021-04-26)
+==================
+
+- show a meaningful message, if subject is >= 100, because sns supports only subject with length < 100
+- introduce --shorten to shorten a specified variable, if subject lenght is >= 100
+
 0.2.2 (2020-09-24)
 ==================
 

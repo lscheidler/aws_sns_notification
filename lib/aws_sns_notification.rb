@@ -77,6 +77,18 @@ module AwsSnsNotification
     def initialize_data
       parse_output if @template['parse_output']
       @subject = ERB.new(@template['subject']).result(binding)
+
+      # try to shorten subject, if length is >= 100 and shorten is set to a existing variable
+      if (l=@subject.length) >= 100 and @config.shorten
+        if instance_variable_defined? "@#{@config.shorten}"
+          var = instance_variable_get "@#{@config.shorten}"
+          instance_variable_set "@#{@config.shorten}", var[0..(-1*(l-99+1))]
+          @subject = ERB.new(@template['subject']).result(binding)
+        else
+          warn "shorten aborted. variable #{@config.shorten} is not set."
+        end
+      end
+
       @message = ERB.new(@template['template']).result(binding)
     end
 
@@ -132,6 +144,11 @@ module AwsSnsNotification
         Aws.config.update(
           credentials: Aws::Credentials.new(@config.aws_access_key_id, @config.aws_secret_key)
         )
+      end
+
+      if @subject.length >= 100
+        warn "Subject is too long. #{@subject.length} >= 100."
+        exit 1
       end
 
       sns = Aws::SNS::Resource.new(
